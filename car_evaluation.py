@@ -1,15 +1,31 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import torch
+from torch import nn
+
+
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()
+        self.layer_one = nn.Linear(6,5)
+        self.layer_two = nn.Linear(5,5)
+        self.layer_three = nn.Linear(5,4)
+    
+    def forward(self, X):
+        output = self.layer_one(X)
+        output = self.layer_two(torch.relu(output))
+        output = self.layer_three(torch.relu(output))
+        output = torch.softmax(output)
+        return output
 
 
 # Loading CarDataset
-print('Loading Car Dataset')
+print('Loading Car Dataset ... ')
 ds_car = pd.read_csv('datasets/car.csv')
 
 
 # Preprocessing Car Dataset
-print('Preprocessing dataset')
+print('Preprocessing dataset ...')
 
 #Converting the categorical values to numeric 
 for column in ds_car.columns:
@@ -27,6 +43,9 @@ train_X, test_X, train_y, test_y = train_test_split(
     test_size = 0.2
 )
 
+# It's important convert to the values for long
+# because Pytorch framework will encod the categorical 
+# values for encoding on-hot   
 train_X = torch.tensor(train_X.values.tolist()).long()
 train_y = torch.tensor(train_y.values.tolist()).long()
 
@@ -38,3 +57,6 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using {} device".format(device))
 
 
+model =  Net().to(device)
+
+print(model)
