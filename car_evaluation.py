@@ -1,7 +1,44 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import torch
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader
+from torch.utils.data import random_split
 from torch import nn
+import numpy as np
+
+
+class CarEvaluationDataset(Dataset):
+    def __init__(self, str_path):
+        # Loading CarDataset
+        print('Loading Car Dataset ... ')
+        self.ds_car = pd.read_csv(str_path)
+        self.processed_ds_car = self.preprocess()
+        self.processed_ds_car.evaluation = self.processed_ds_car.evaluation.astype('long')
+        self.processed_ds_car = self.processed_ds_car.values
+
+    # Preprocessing Car Dataset
+    def preprocess(self):
+        print('Preprocessing dataset ...')
+
+        new_ds_car = pd.DataFrame(data=self.ds_car)
+
+        #Converting the categorical values to numeric 
+        for column in new_ds_car.columns:
+            attributes_values = new_ds_car[column].drop_duplicates()
+            i = 0.
+            for attribute_value in attributes_values:
+                new_ds_car.loc[new_ds_car[column]==attribute_value, column] = i
+                i +=1
+        return new_ds_car
+    
+    def __len__(self):
+        return len(self.processed_ds_car)
+
+    def __getitem__(self, idx):
+        sample = self.processed_ds_car[idx]
+        X, y = sample[:-1], sample[-1]
+        return torch.tensor(X.tolist()), y
 
 
 class Net(nn.Module):
@@ -18,45 +55,25 @@ class Net(nn.Module):
         output = torch.softmax(output)
         return output
 
-
-# Loading CarDataset
-print('Loading Car Dataset ... ')
-ds_car = pd.read_csv('datasets/car.csv')
-
-
-# Preprocessing Car Dataset
-print('Preprocessing dataset ...')
-
-#Converting the categorical values to numeric 
-for column in ds_car.columns:
-    attributes_values = ds_car[column].drop_duplicates()
-    i = 0.
-    for attribute_value in attributes_values:
-        ds_car.loc[ds_car[column]==attribute_value, column] = i
-        i +=1
-
-#Split car dataset with holdout validation
-print('Spliting car dataset with holdout validation ...')
-train_X, test_X, train_y, test_y = train_test_split(
-    ds_car[ds_car.columns[0:5]],
-    ds_car.evaluation,
-    test_size = 0.2
+car_dataset = CarEvaluationDataset('datasets/car.csv')
+train_dataset, test_dataset = random_split(
+    car_dataset, 
+    [int(len(car_dataset)*0.2), len(car_dataset)-int(len(car_dataset)*0.2)]
 )
 
-# It's important convert to the values for long
-# because Pytorch framework will encod the categorical 
-# values for encoding on-hot   
-train_X = torch.tensor(train_X.values.tolist()).long()
-train_y = torch.tensor(train_y.values.tolist()).long()
 
-test_X = torch.tensor(test_X.values.tolist()).long()
-test_y = torch.tensor(test_y.values.tolist()).long()
+train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle=True)
 
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-print("Using {} device".format(device))
+
+#train_dataloader = DataLoader.(())
 
 
-model =  Net().to(device)
+# device = "cuda" if torch.cuda.is_available() else "cpu"
+# print("Using {} device".format(device))
 
-print(model)
+
+# model =  Net().to(device)
+
+# print(model)
